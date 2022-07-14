@@ -1,0 +1,90 @@
+version: "3"
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:3.2.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:3.2.0
+    depends_on:
+      - zookeeper
+    ports:
+      - 9092:9092
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      LISTENERS: PLAINTEXT://kafka:9092
+
+  postgres1:
+    image: postgres:13.3
+    environment:
+      POSTGRES_DB: "dockerdb"
+      POSTGRES_USER: "dockeruser"
+      POSTGRES_PASSWORD: "dockerpass"
+    ports:
+      - "8001:5432"
+
+  postgres2:
+    image: postgres:13.3
+    environment:
+      POSTGRES_DB: "dockerdb"
+      POSTGRES_USER: "dockeruser"
+      POSTGRES_PASSWORD: "dockerpass"
+    ports:
+      - "8002:5432"
+
+  postgres3:
+    image: postgres:13.3
+    environment:
+      POSTGRES_DB: "dockerdb"
+      POSTGRES_USER: "dockeruser"
+      POSTGRES_PASSWORD: "dockerpass"
+    ports:
+      - "8003:5432"
+
+  mythird:
+    image: ymaslau/mythird
+    depends_on:
+      - postgres3
+      - kafka
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres3:5432/dockerdb
+      - SPRING_DATASOURCE_USERNAME=dockeruser
+      - SPRING_DATASOURCE_PASSWORD=dockerpass
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    ports:
+      - "8883:8883"
+
+  mysecond:
+    image: ymaslau/mysecond
+    depends_on:
+      - postgres2
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres2:5432/dockerdb
+      - SPRING_DATASOURCE_USERNAME=dockeruser
+      - SPRING_DATASOURCE_PASSWORD=dockerpass
+    ports:
+      - "8882:8882"
+
+  myfirst:
+    image: ymaslau/myfirst
+    depends_on:
+      - postgres1
+      - mythird
+      - mysecond
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres1:5432/dockerdb
+      - SPRING_DATASOURCE_USERNAME=dockeruser
+      - SPRING_DATASOURCE_PASSWORD=dockerpass
+      - SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS=kafka:9092
+      - SERVER_SECOND_ADDRESS=mysecond
+      - SERVER_SECOND_PORT=8882
+    ports:
+      - "8881:8881"
